@@ -15,6 +15,11 @@ dataname=['wine','breast','ecoli','zoo','thyroid','seeds','abalone'
           ,'gesture','liver','ionosphere','heart','balancescale','vehicle','banknote','sonar' ,'leaf'
           ,'Yeast']
 dataname=['iris']
+datasets=["citeseer_Louvain","citeseer_Metis","cora_Louvain","cora_Metis","pubmed_Louvain","pubmed_Metis",
+          "chameleon_Louvain","chameleon_Metis","computers_Louvain","computers_Metis","photo_Louvain","photo_Metis",
+          "squirrel_Louvain","squirrel_Metis","webkb_Louvain","webkb_Metis"]
+
+
 for i in dataname:
     data_path = '../dataset/' + i + 'fed.pkl'
     print(data_path)
