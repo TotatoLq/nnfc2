@@ -24,31 +24,17 @@ datasets=["citeseer_Louvain","citeseer_Metis","cora_Louvain","cora_Metis","pubme
 def get_mean(data):
     return numpy.mean(data, axis=0)
 
-
 for dataset_name in datasets:
     data_path = os.path.join('..', 'datasets','pkl_datasets', f'{dataset_name}.pkl')
     print(data_path)
     ari = []
     nmi = []
     acc = []
+    use_gpu = os.getenv("NNFC_USE_GPU", "0") == "1"
 
     for _ in range(100):
-        a, n, c, p = nnfc(data_path)
+        a, n, c, p = nnfc(data_path, use_gpu=use_gpu)
         print('ari', a, 'nmi', n, 'acc', c)
         ari.append(a)
         nmi.append(n)
         acc.append(c)
-    print("------------------------------------------------------------------------------")
-    print('ari', max(ari), 'nmi', max(nmi), 'acc', max(acc), p)
-    print('ari', get_mean(ari), 'nmi', get_mean(nmi), 'acc', get_mean(acc), p)
-    save_evaluating_indicator('max', dataset_name, max(ari), max(nmi), max(acc), save_dir="./acc_records/nnfc")
-    save_evaluating_indicator('mean', dataset_name, get_mean(ari), get_mean(nmi), get_mean(acc), save_dir="./acc_records/nnfc")
-
-
-
-    # 保存结果。
-    with open('result.txt', 'a') as f:
-        f.write(data_path)
-        f.write(
-            'ari' + str(max(ari)) + 'nmi' + str(max(nmi)) + 'acc' + str(max(acc)) + str(p) + '\n'
-        )

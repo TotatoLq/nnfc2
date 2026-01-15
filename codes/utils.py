@@ -19,6 +19,8 @@ from sklearn.metrics import silhouette_score, adjusted_rand_score, normalized_mu
 from sklearn.metrics import adjusted_mutual_info_score
 from scipy.optimize import linear_sum_assignment
 from typing import List, Tuple
+import importlib
+import importlib.util
 from numpy import arange, argsort, argwhere, empty, full, inf, intersect1d, max, ndarray, sort, sum, zeros
 from scipy.spatial.distance import pdist, squareform
 from sklearn.metrics.pairwise import euclidean_distances, cosine_distances
@@ -33,6 +35,27 @@ def load_dataset(filepath):
     with open(filepath, 'rb') as fr:
         dataset = pickle.load(fr)
     return dataset
+
+def _get_cupy():
+    if importlib.util.find_spec("cupy"):
+        return importlib.import_module("cupy")
+    return None
+
+def _get_cuml_kmeans():
+    if importlib.util.find_spec("cuml"):
+        cuml_cluster = importlib.import_module("cuml.cluster")
+        return cuml_cluster.KMeans
+    return None
+
+def _euclidean_distances(data, use_gpu, cupy_module):
+    if use_gpu and cupy_module is not None:
+        x = cupy_module.asarray(data)
+        x2 = cupy_module.sum(x * x, axis=1, keepdims=True)
+        distances = cupy_module.sqrt(
+            cupy_module.maximum(x2 - 2 * x @ x.T + x2.T, 0)
+        )
+        return cupy_module.asnumpy(distances)
+    return euclidean_distances(data)
 # 按行的方式计算两个坐标点之间的距离
 def dist(a, b, ax=1):
     return np.linalg.norm(a - b, axis=ax)
@@ -176,7 +199,7 @@ def add_laplace_noise(data, epsilon, sensitivity):
 #print("Original Data: ", data)
 #print("Noisy Data: ", noisy_data)
 
-def nnfc(data_path):
+def nnfc(data_path, use_gpu=False):
     parameters = []
     datapkl = load_dataset(data_path)  # dataset is a json file
     eachlable = datapkl['eachlable']
@@ -185,6 +208,12 @@ def nnfc(data_path):
     allgamme = np.zeros((1, len(data)))[0]
     corepoints = []
     client_results = []
+    cupy_module = _get_cupy() if use_gpu else None
+    kmeans_cls = _get_cuml_kmeans() if use_gpu else None
+    if use_gpu and cupy_module is None:
+        print("GPU requested but CuPy is not available; falling back to CPU.")
+    if use_gpu and kmeans_cls is None:
+        print("GPU requested but cuML is not available; KMeans will use CPU.")
     for i_client in range(len(list(order))):
         # add noise to local data (Differential privacy)
 
@@ -192,7 +221,7 @@ def nnfc(data_path):
 
         noise = np.random.uniform(0, 1, size=lodata.shape)
 
-        euc = euclidean_distances(lodata)
+        euc = _euclidean_distances(lodata, use_gpu, cupy_module)
         row, col = np.diag_indices_from(euc)
         euc[row, col] = np.max(euc)
         minvalue = np.min(euc)
@@ -226,9 +255,13 @@ def nnfc(data_path):
         #corepoints.append(lodata)
         n_clusters = min([len(lodata) // 3, 50])
         parameters.append(n_clusters)
-        cluster = KMeans(n_clusters).fit(lodata)
-
-        corepoints.append(cluster.cluster_centers_)
+        if use_gpu and cupy_module is not None and kmeans_cls is not None:
+            lodata_gpu = cupy_module.asarray(lodata)
+            cluster = kmeans_cls(n_clusters=n_clusters, random_state=0).fit(lodata_gpu)
+            corepoints.append(cupy_module.asnumpy(cluster.cluster_centers_))
+        else:
+            cluster = KMeans(n_clusters).fit(lodata)
+            corepoints.append(cluster.cluster_centers_)
     serverdata = np.concatenate(corepoints, axis=0)
         # 对加密的数据进行代表点提取
 
