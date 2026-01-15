@@ -20,8 +20,8 @@ datasets=["citeseer_Louvain","citeseer_Metis","cora_Louvain","cora_Metis","pubme
           "squirrel_Louvain","squirrel_Metis","webkb_Louvain","webkb_Metis"]
 
 
-for i in dataname:
-    data_path = '../dataset/' + i + 'fed.pkl'
+for i in datasets:
+    data_path = '../dataset/pkl_datasets' + i + 'fed.pkl'
     print(data_path)
     ari=[]
     nmi=[]
