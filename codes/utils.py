@@ -17,6 +17,7 @@ import random
 import numpy as np
 from sklearn.metrics import silhouette_score, adjusted_rand_score, normalized_mutual_info_score
 from sklearn.metrics import adjusted_mutual_info_score
+from scipy.optimize import linear_sum_assignment
 from typing import List, Tuple
 from numpy import arange, argsort, argwhere, empty, full, inf, intersect1d, max, ndarray, sort, sum, zeros
 from scipy.spatial.distance import pdist, squareform
@@ -206,7 +207,7 @@ def nnfc(data_path):
         ratio = []
         for i in arr:
             for j in arr:
-		num1,num2=float(i)/float(j),float(j )/float(i)
+                num1,num2=float(i)/float(j),float(j )/float(i)
                 ratio.append(max([num1,num2]))    
         maxratio = max(ratio)
         epsilon = 1.01 * maxratio / minvalue
@@ -265,4 +266,20 @@ def nnfc(data_path):
     arr = np.array(idx)
     ari = round(adjusted_rand_score(label, arr), 4)
     nmi = round(normalized_mutual_info_score(label, arr), 4)
-    return ari,nmi,parameters
+    acc = round(cluster_accuracy(label, arr), 4)
+    return ari, nmi, acc, parameters
+
+
+def cluster_accuracy(true_labels, pred_labels):
+    true_labels = np.array(true_labels)
+    pred_labels = np.array(pred_labels)
+    classes = np.unique(true_labels)
+    clusters = np.unique(pred_labels)
+    confusion_matrix = np.zeros((classes.size, clusters.size), dtype=np.int64)
+    for i, label in enumerate(classes):
+        for j, cluster in enumerate(clusters):
+            confusion_matrix[i, j] = np.sum(
+                (true_labels == label) & (pred_labels == cluster)
+            )
+    row_ind, col_ind = linear_sum_assignment(-confusion_matrix)
+    return confusion_matrix[row_ind, col_ind].sum() / true_labels.size
